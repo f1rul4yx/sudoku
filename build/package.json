@@ -1,0 +1,21 @@
+{
+  "name": "sudoku",
+  "version": "1.0.0",
+  "description": "Sudoku - Juega, guarda tu progreso, genera sudokus en papel y encuaderna tu libro",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "bcrypt": "^5.1.1",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.11.3"
+  },
+  "author": "Diego - ASIR",
+  "license": "MIT",
+  "allowScripts": {
+    "bcrypt@5.1.1": true
+  }
+}

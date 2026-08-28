@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sudoku</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧩</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #f4f6fb;
+            --card: #ffffff;
+            --ink: #1e293b;
+            --muted: #64748b;
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --accent: #0ea5e9;
+            --green: #059669;
+            --amber: #d97706;
+            --red: #dc2626;
+            --line: #c3cad8;
+            --line-strong: #334155;
+            --highlight: #e0e7ff;
+            --radius: 14px;
+            --shadow: 0 4px 16px rgba(30, 60, 114, 0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--ink);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .hidden { display: none !important; }
+
+        /* ============ AUTH ============ */
+        #auth-screen {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .auth-card {
+            background: var(--card);
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            padding: 40px 36px;
+            width: 100%;
+            max-width: 400px;
+        }
+        .auth-logo { text-align: center; font-size: 3rem; margin-bottom: 6px; }
+        .auth-title { text-align: center; font-size: 1.9rem; font-weight: 900; letter-spacing: -.5px; }
+        .auth-sub { text-align: center; color: var(--muted); margin-bottom: 22px; }
+        .auth-tabs { display: flex; margin-bottom: 18px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
+        .auth-tab {
+            flex: 1; padding: 10px; border: none; cursor: pointer;
+            font-family: inherit; font-weight: 600; background: #f1f3f9; color: var(--muted);
+        }
+        .auth-tab.active { background: var(--primary); color: #fff; }
+
+        .field { margin-bottom: 14px; }
+        .field label { display: block; font-size: .8rem; font-weight: 700; margin-bottom: 6px; color: var(--ink); }
+        .field input {
+            width: 100%; padding: 11px 12px; border: 1px solid var(--line);
+            border-radius: 10px; font-family: inherit; font-size: .95rem; outline: none;
+            transition: border .2s;
+        }
+        .field input:focus { border-color: var(--primary); }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 11px 18px; border: none; border-radius: 10px; cursor: pointer;
+            font-family: inherit; font-weight: 600; font-size: .95rem;
+            transition: filter .15s, transform .05s;
+        }
+        .btn:active { transform: translateY(1px); }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover { filter: brightness(1.08); }
+        .btn-ghost { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+        .btn-ghost:hover { background: #f1f3f9; }
+        .btn-red { background: #fff; color: var(--red); border: 1px solid #fecaca; }
+        .btn-red:hover { background: #fef2f2; }
+        .btn-block { width: 100%; }
+
+        .error-box {
+            background: #fef2f2; color: var(--red); border: 1px solid #fecaca;
+            padding: 10px 12px; border-radius: 10px; font-size: .88rem; margin-bottom: 14px;
+        }
+
+        /* ============ SPA SHELL ============ */
+        #app {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .app-header {
+            background: var(--card);
+            border-bottom: 1px solid var(--line);
+            padding: 14px 22px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        .brand { display: flex; align-items: center; gap: 10px; font-size: 1.3rem; font-weight: 900; letter-spacing: -.5px; }
+        .brand .ico { font-size: 1.6rem; }
+        .user-box { display: flex; align-items: center; gap: 12px; font-size: .9rem; color: var(--muted); }
+        .user-box .name { font-weight: 700; color: var(--ink); }
+        .user-box .avatar {
+            width: 34px; height: 34px; border-radius: 50%; background: var(--primary);
+            color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700;
+        }
+
+        .nav-bar {
+            background: var(--card);
+            border-bottom: 1px solid var(--line);
+            padding: 0 12px;
+            display: flex;
+            gap: 4px;
+            overflow-x: auto;
+        }
+        .nav-btn {
+            background: none; border: none; padding: 14px 16px; cursor: pointer;
+            font-family: inherit; font-weight: 600; font-size: .92rem; color: var(--muted);
+            border-bottom: 3px solid transparent; white-space: nowrap;
+        }
+        .nav-btn:hover { color: var(--ink); }
+        .nav-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+        .app-main { flex: 1; max-width: 980px; width: 100%; margin: 0 auto; padding: 26px 20px 60px; }
+
+        .card {
+            background: var(--card); border-radius: var(--radius);
+            box-shadow: var(--shadow); padding: 24px; margin-bottom: 22px;
+            border: 1px solid #edf0f7;
+        }
+        .card h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 6px; letter-spacing: -.3px; }
+        .card .lead { color: var(--muted); font-size: .95rem; margin-bottom: 16px; }
+
+        .section-title { font-size: 1.5rem; font-weight: 800; letter-spacing: -.4px; margin-bottom: 4px; }
+        .section-sub { color: var(--muted); margin-bottom: 20px; font-size: .95rem; }
+
+        /* ============ DIFFICULTY CHIPS ============ */
+        .diff-chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 18px; }
+        .chip {
+            padding: 16px 12px; border: 2px solid var(--line); border-radius: 12px;
+            cursor: pointer; text-align: center; font-family: inherit; background: #fff;
+            transition: all .15s; position: relative;
+        }
+        .chip .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+        .chip .lbl { font-weight: 700; }
+        .chip:hover { border-color: var(--primary); }
+        .chip.selected { border-color: var(--primary); background: var(--highlight); }
+        .chip .desc { font-size: .75rem; color: var(--muted); margin-top: 4px; }
+
+        .badge {
+            display: inline-block; font-size: .72rem; font-weight: 700; padding: 3px 10px;
+            border-radius: 999px; color: #fff;
+        }
+        .b-facil { background: var(--green); }
+        .b-medio { background: var(--accent); }
+        .b-dificil { background: var(--amber); }
+        .b-experto { background: var(--red); }
+
+        /* ============ BOARD ============ */
+        #board-wrap { display: flex; justify-content: center; }
+        #board {
+            display: grid; grid-template-columns: repeat(9, 1fr);
+            grid-auto-rows: 1fr;
+            width: min(92vw, 460px); aspect-ratio: 1;
+            background: #fff; border: 3px solid var(--line-strong); border-radius: 8px; overflow: hidden;
+        }
+        .cell {
+            display: flex; align-items: center; justify-content: center;
+            font-size: clamp(16px, 5.2vw, 26px); font-weight: 600;
+            cursor: pointer; user-select: none; color: var(--primary);
+            border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+            transition: background .08s;
+        }
+        .cell.given { color: var(--ink); font-weight: 800; }
+        .cell.b { border-right: 2.5px solid var(--line-strong); }
+        .cell.bb { border-bottom: 2.5px solid var(--line-strong); }
+        .cell.no-r { border-right: none; }
+        .cell.no-b { border-bottom: none; }
+        .cell.hl { background: var(--highlight); }
+        .cell.same { background: #c7d2fe; }
+        .cell.selected { background: #a5b4fc; }
+        .cell.error { color: var(--red) !important; font-weight: 800; }
+        .cell.dim { color: #d1d5db; }
+
+        /* ============ GAME CONTROLS ============ */
+        .game-top {
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 10px; margin-bottom: 16px;
+        }
+        .stat { font-size: .88rem; color: var(--muted); }
+        .stat b { color: var(--ink); }
+        .progress-track { height: 8px; background: #eef1f7; border-radius: 99px; overflow: hidden; margin: 12px 0 18px; }
+        .progress-fill { height: 100%; background: var(--primary); border-radius: 99px; transition: width .3s; }
+
+        #numpad { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 18px 0 12px; }
+        .key {
+            width: clamp(38px, 9vw, 54px); height: clamp(38px, 9vw, 54px);
+            border: 1px solid var(--line); background: #fff; border-radius: 10px;
+            font-size: 1.2rem; font-weight: 700; cursor: pointer; font-family: inherit;
+            transition: all .1s;
+        }
+        .key:hover { border-color: var(--primary); color: var(--primary); }
+        .key.erase { color: var(--red); }
+
+        .game-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+        .win-banner {
+            background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46;
+            border-radius: 12px; padding: 14px 18px; text-align: center; margin-bottom: 16px;
+            font-weight: 700;
+        }
+
+        /* ============ LISTS (historial / en curso) ============ */
+        .list { display: flex; flex-direction: column; gap: 10px; }
+        .list-item {
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; background: #fff;
+            flex-wrap: wrap;
+        }
+        .list-item .info { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .list-item .meta { color: var(--muted); font-size: .82rem; }
+        .list-item .actions { display: flex; gap: 8px; }
+        .empty-state {
+            text-align: center; color: var(--muted); padding: 30px 10px; font-size: .95rem;
+        }
+        .empty-state .big { font-size: 2.4rem; display: block; margin-bottom: 6px; }
+
+        /* ============ TUTORIAL ============ */
+        .tut-step { display: flex; gap: 14px; margin-bottom: 20px; }
+        .tut-num {
+            flex: 0 0 34px; width: 34px; height: 34px; border-radius: 50%;
+            background: var(--primary); color: #fff; display: flex; align-items: center;
+            justify-content: center; font-weight: 800;
+        }
+        .tut-body h3 { font-size: 1.05rem; margin-bottom: 6px; }
+        .tut-body p, .tut-body li { color: #334155; font-size: .95rem; }
+        .tut-body ul { padding-left: 20px; margin: 6px 0; }
+        .tip-box {
+            background: #fef9c3; border: 1px solid #fde68a; color: #854d0e;
+            border-radius: 12px; padding: 12px 16px; font-size: .92rem; margin: 14px 0;
+        }
+        .info-grids { display: flex; flex-wrap: wrap; gap: 22px; justify-content: center; margin: 14px 0; }
+        .info-grids figure { text-align: center; }
+        .info-grids figcaption { font-size: .85rem; color: var(--muted); margin-top: 8px; max-width: 220px; }
+
+        .mini-row { display: flex; width: min(320px, 90vw); border: 2px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+        .mini-row .mcell {
+            flex: 1; aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 1.3rem; color: var(--ink);
+            border-right: 1px solid var(--line);
+        }
+        .mini-row .mcell:nth-child(3n) { border-right: 2.5px solid var(--line-strong); }
+        .mini-row .mcell:last-child { border-right: none; }
+        .mcell.m-hl { background: #fde68a; color: var(--amber) !important; }
+        .mcell.m-empty { color: #cbd5e1; }
+
+        .mini-box {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            width: min(160px, 50vw); border: 2.5px solid var(--line-strong); border-radius: 8px; overflow: hidden;
+            margin: 0 auto;
+        }
+        .mini-box .mcell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.4rem; color: var(--ink); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+        .mini-box .mcell:nth-child(3n) { border-right: none; }
+        .mini-box .mcell:nth-child(n+7) { border-bottom: none; }
+        .mini-box .mcell.m-hl { background: #fde68a; color: var(--amber) !important; }
+        .mini-cand { font-size: .6rem; font-weight: 700; color: var(--muted); display: flex; flex-direction: column; line-height: 1.1; }
+
+        /* ============ PRINT FORM ============ */
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 18px; }
+        .form-grid select, .form-grid input[type=number] {
+            width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
+            font-family: inherit; font-size: .95rem; background: #fff;
+        }
+        .seg { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+        .seg button { flex: 1; padding: 10px; border: none; cursor: pointer; background: #fff; font-family: inherit; font-weight: 600; color: var(--muted); }
+        .seg button.active { background: var(--primary); color: #fff; }
+        .check-row { display: flex; align-items: center; gap: 10px; font-size: .92rem; margin-bottom: 6px; }
+        .check-row input { width: 18px; height: 18px; accent-color: var(--primary); }
+
+        /* ============ RESPONSIVE ============ */
+        @media (max-width: 560px) {
+            .app-header { padding: 12px 14px; }
+            .card { padding: 18px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============ AUTH ============ -->
+    <div id="auth-screen" class="hidden">
+        <div class="auth-card">
+            <div class="auth-logo">🧩</div>
+            <h1 class="auth-title">Sudoku</h1>
+            <p class="auth-sub">Juega, guarda tu progreso e imprime tus propios sudokus</p>
+            <div class="auth-tabs">
+                <button id="tab-login" class="auth-tab active" onclick="switchAuthTab('login')">Iniciar sesión</button>
+                <button id="tab-register" class="auth-tab" onclick="switchAuthTab('register')">Registrarse</button>
+            </div>
+            <div id="auth-error" class="error-box hidden"></div>
+
+            <form id="form-login" onsubmit="doLogin(event)">
+                <div class="field">
+                    <label for="login-user">Usuario</label>
+                    <input id="login-user" type="text" autocomplete="username" placeholder="tu usuario" required>
+                </div>
+                <div class="field">
+                    <label for="login-pass">Contraseña</label>
+                    <input id="login-pass" type="password" autocomplete="current-password" placeholder="••••" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+            </form>
+
+            <form id="form-register" class="hidden" onsubmit="doRegister(event)">
+                <div class="field">
+                    <label for="reg-user">Usuario</label>
+                    <input id="reg-user" type="text" autocomplete="username" placeholder="mínimo 3 caracteres" required>
+                </div>
+                <div class="field">
+                    <label for="reg-pass">Contraseña</label>
+                    <input id="reg-pass" type="password" autocomplete="new-password" placeholder="mínimo 4 caracteres" required>
+                </div>
+                <div class="field">
+                    <label for="reg-pass2">Repite la contraseña</label>
+                    <input id="reg-pass2" type="password" autocomplete="new-password" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Crear cuenta</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============ APP ============ -->
+    <div id="app" class="hidden">
+        <header class="app-header">
+            <div class="brand"><span class="ico">🧩</span>Sudoku</div>
+            <div class="user-box">
+                <div class="avatar" id="user-avatar">?</div>
+                <span>Hola, <span id="user-name" class="name">—</span></span>
+                <button class="btn btn-ghost" onclick="logout()">Salir</button>
+            </div>
+        </header>
+
+        <nav class="nav-bar">
+            <button class="nav-btn active" data-section="play" onclick="go('play')">Jugar</button>
+            <button class="nav-btn" data-section="tutorial" onclick="go('tutorial')">Tutorial</button>
+            <button class="nav-btn" data-section="history" onclick="go('history')">Historial</button>
+            <button class="nav-btn" data-section="print" onclick="go('print')">Imprimir</button>
+            <button class="nav-btn" data-section="binding" onclick="go('binding')">Encuadernar</button>
+        </nav>
+
+        <main class="app-main">
+
+            <!-- ========== JUGAR ========== -->
+            <section id="sec-play">
+                <h1 class="section-title">Jugar</h1>
+                <p class="section-sub">Elige una dificultad y genera un sudoku aleatorio. Si lo dejas a medias, podrás continuarlo cuando quieras.</p>
+
+                <div class="card">
+                    <h2>Nueva partida</h2>
+                    <p class="lead">Selecciona la dificultad del sudoku que quieres resolver.</p>
+                    <div class="diff-chips" id="diff-chips"></div>
+                    <button id="btn-new-game" class="btn btn-primary" disabled onclick="startNewGame()">Generar sudoku aleatorio</button>
+                </div>
+
+                <div id="current-game-panel" class="card hidden">
+                    <div class="game-top">
+                        <span id="game-diff-badge" class="badge">Fácil</span>
+                        <span class="stat">⏱ <b id="game-timer">00:00</b></span>
+                        <span class="stat">Progreso: <b id="game-progress-label">0%</b></span>
+                    </div>
+                    <div class="progress-track"><div class="progress-fill" id="game-progress-bar" style="width:0%"></div></div>
+                    <div id="win-banner" class="win-banner hidden"></div>
+                    <div id="board-wrap"><div id="board"></div></div>
+                    <div id="numpad"></div>
+                    <div class="game-actions">
+                        <button class="btn btn-ghost" onclick="undoMove()">↩ Deshacer</button>
+                        <button class="btn btn-ghost" onclick="restartGame()">🔄 Reiniciar</button>
+                        <button class="btn btn-primary" onclick="startAnother()">＋ Nueva</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Partidas en curso</h2>
+                    <p class="lead">Sudokus que dejaste a medias. Continúa donde lo dejaste.</p>
+                    <div id="inprogress-list"></div>
+                </div>
+            </section>
+
+            <!-- ========== TUTORIAL ========== -->
+            <section id="sec-tutorial" class="hidden">
+                <h1 class="section-title">Aprende a jugar</h1>
+                <p class="section-sub">Explicado de forma sencilla, desde cero, para que hoy mismo resuelvas tu primer sudoku.</p>
+
+                <div class="card">
+                    <div class="tut-step">
+                        <div class="tut-num">1</div>
+                        <div class="tut-body">
+                            <h3>¿Qué es un sudoku?</h3>
+                            <p>Es una cuadrícula de <b>9×9</b> dividida en <b>9 cajas de 3×3</b> (cada una con borde más grueso). Algunas casillas ya traen números escritos: son las <b>pistas</b>. Tu trabajo es rellenar las vacías.</p>
+                        </div>
+                    </div>
+                    <div class="tut-step">
+                        <div class="tut-num">2</div>
+                        <div class="tut-body">
+                            <h3>La única regla</h3>
+                            <p>Rellena cada casilla con un número del <b>1 al 9</b> cumpliendo esto:</p>
+                            <ul>
+                                <li>Cada <b>fila</b> (horizontal) contiene los números del 1 al 9 sin repetir.</li>
+                                <li>Cada <b>columna</b> (vertical) contiene los números del 1 al 9 sin repetir.</li>
+                                <li>Cada <b>caja 3×3</b> contiene los números del 1 al 9 sin repetir.</li>
+                            </ul>
+                            <p>Nada más. No hay sumas ni cuentas: solo memoria y lógica.</p>
+                        </div>
+                    </div>
+                    <div class="tut-step">
+                        <div class="tut-num">3</div>
+                        <div class="tut-body">
+                            <h3>Empieza por lo obvio: busca lo que falta</h3>
+                            <p>Busca una caja, fila o columna a la que ya casi solo le falte <b>un hueco</b>. Ese hueco solo puede ser el número del 1 al 9 que todavía no está.</p>
+                            <div class="info-grids">
+                                <figure>
+                                    <div id="ex-box" class="mini-box"></div>
+                                    <figcaption>En esta caja falta el <b>1</b>: es el único número del 1 al 9 que no aparece.</figcaption>
+                                </figure>
+                                <figure>
+                                    <div id="ex-row" class="mini-row"></div>
+                                    <figcaption>En esta fila falta el <b>7</b>: es el único número que no está.</figcaption>
+                                </figure>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tut-step">
+                        <div class="tut-num">4</div>
+                        <div class="tut-body">
+                            <h3>Barre por números (técnica de escaneo)</h3>
+                            <p>En lugar de ir casilla a casilla, escoge <b>un número</b> (por ejemplo el 4) y mira dónde está colocado. En cada caja, pregúntate: <i>¿en qué casilla de esta caja puede ir el 4?</i>. Usa las filas y columnas que ya lo tienen para descartar lugares.</p>
+                            <p>Repítelo con cada número del 1 al 9 y verás cómo la cuadrícula se va llenando sola.</p>
+                        </div>
+                    </div>
+                    <div class="tut-step">
+                        <div class="tut-num">5</div>
+                        <div class="tut-body">
+                            <h3>Usa "marcas de lápiz" (candidatos)</h3>
+                            <p>Cuando una casilla puede ser uno de varios números, anótalos <b>pequeñitos</b> dentro de la casilla (en papel) o en la app. Así recuerdas las posibilidades y las vas borrando cuando confirmas.</p>
+                            <div id="ex-candidates" style="max-width:240px; margin:0 auto;">
+                                <div class="mini-box" id="ex-cand-box"></div>
+                            </div>
+                            <p style="margin-top:6px; text-align:center;">En estas casillas solo puede ir <b>4</b> u <b>8</b>. Cuando descubras cuál, lo pones en grande.</p>
+                        </div>
+                    </div>
+                    <div class="tut-step">
+                        <div class="tut-num">6</div>
+                        <div class="tut-body">
+                            <h3>Paciencia y no adivinar</h3>
+                            <p>Un sudoku siempre se puede resolver con <b>lógica</b>, sin adivinar. Si te atas, descansa unos minutos y vuelve: verás cosas que antes no veías. Cuantos más resuelvas, más rápido vas.</p>
+                        </div>
+                    </div>
+                    <div class="tip-box">💡 <b>Consejo:</b> los números en rojo en el juego son los que chocan (se repiten en la fila, columna o caja). Bórralos y prueba otro.</div>
+                    <button class="btn btn-primary" onclick="go('play')">¡A jugar mi primer sudoku! 🎉</button>
+                </div>
+            </section>
+
+            <!-- ========== HISTORIAL ========== -->
+            <section id="sec-history" class="hidden">
+                <h1 class="section-title">Historial</h1>
+                <p class="section-sub">Todos los sudokus que has completado, con su fecha de finalización.</p>
+                <div class="card">
+                    <div id="history-list"></div>
+                </div>
+            </section>
+
+            <!-- ========== IMPRIMIR ========== -->
+            <section id="sec-print" class="hidden">
+                <h1 class="section-title">Imprimir en papel</h1>
+                <p class="section-sub">Genera folios A4 con tus sudokus para resolverlos a lápiz o encuadernarlos en un libro.</p>
+
+                <div class="card">
+                    <div class="form-grid">
+                        <div>
+                            <label style="font-size:.8rem;font-weight:700;">Dificultad</label>
+                            <select id="print-difficulty">
+                                <option value="facil">Fácil</option>
+                                <option value="medio" selected>Medio</option>
+                                <option value="dificil">Difícil</option>
+                                <option value="experto">Experto</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:.8rem;font-weight:700;">Número de sudokus</label>
+                            <input id="print-count" type="number" min="1" max="100" value="30">
+                        </div>
+                        <div>
+                            <label style="font-size:.8rem;font-weight:700;">Sudokus por folio</label>
+                            <div class="seg" id="print-perpage">
+                                <button data-v="1" onclick="setPerPage(1)">1</button>
+                                <button data-v="2" onclick="setPerPage(2)">2</button>
+                                <button data-v="4" class="active" onclick="setPerPage(4)">4</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="check-row">
+                        <input id="print-solutions" type="checkbox">
+                        <label for="print-solutions">Incluir una hoja con las soluciones al final</label>
+                    </div>
+                    <div id="print-error" class="error-box hidden"></div>
+                    <button class="btn btn-primary" onclick="generatePrint()">🖨️ Generar folios para imprimir</button>
+                    <p style="margin-top:12px; color:var(--muted); font-size:.85rem;">Se abrirá una ventana con los folios maquetados en A4. Pulsa "Imprimir" en el navegador y elige el tamaño A4.</p>
+                </div>
+            </section>
+
+            <!-- ========== ENCUADERNAR ========== -->
+            <section id="sec-binding" class="hidden">
+                <h1 class="section-title">Encuaderna tu libro de sudokus</h1>
+                <p class="section-sub">Para no llevar hojas sueltas, aprende a unirlas en un cuaderno de tres formas distintas.</p>
+
+                <div class="card">
+                    <h2>📦 Qué necesitas</h2>
+                    <ul style="padding-left:20px; color:#334155;">
+                        <li>Los folios A4 impresos desde la sección <b>Imprimir</b>.</li>
+                        <li>Dos hojas de <b>cartulina</b> (tapa delantera y trasera).</li>
+                        <li>Una <b>grapadora de lomo ancho</b>, unas <b>anillas</b> o <b>aguja e hilo encerado</b> según el método que elijas.</li>
+                        <li>Opcional: <b>cinta adhesiva</b> o de tela para reforzar el lomo.</li>
+                    </ul>
+                </div>
+
+                <div class="card">
+                    <h2>Método A — Grapado por el lomo (el más fácil) 👌</h2>
+                    <div class="tut-step">
+                        <div class="tut-num">1</div>
+                        <div class="tut-body"><p>Alinea todos los folios formando un montón y ponle la cartulina delante y detrás. Sujeta con pinzas para que no se muevan.</p></div>
+                    </div>
+                    <div class="tut-step">
+                        <div class="tut-num">2</div>
+                        <div class="tut-body"><p>Abre la grapadora por completo (que quede plana y centrada en el lomo) y grapa <b>2 o 3 veces</b> a lo largo del borde izquierdo, a unos 5 mm del borde.</p></div>
+                    </div>
+                    <div class="tut-step">
+                        <div class="tut-num">3</div>
+                        <div class="tut-body"><p>Dobla las puntas de las grapas hacia dentro (debes ver dos grapas fijas) y refuerza el lomo con cinta de tela por fuera. ¡Listo!</p></div>
+                    </div>
+                    <div class="tip-box">💡 Si son más de 10 folios, las grapas normales no llegan. Cambia al Método B.</div>
+                </div>
+
+                <div class="card">
+                    <h2>Método B — Espiral o anillas (recomendado para libros grandes) 🔗</h2>
+                    <div class="tut-step">
+                        <div class="tut-num">1</div>
+                        <div class="tut-body"><p>Perfora los folios en el borde izquierdo con una <b>taladradora de lomo</b> (la de 2 o 3 agujeros). Hazlo con todos los folios juntos para que los agujeros coincidan.</p></div>
+                    </div>
+                    <div class="tut-step">
+                        <div class="tut-num">2</div>
+                        <div class="tut-body"><p>Si usas <b>anillas</b> (tipo archivador), enróscalas en el paquete de folios y ciérralas.</p></div>
+                    </div>
+                    <div class="tut-step">
+                        <div class="tut-num">3</div>
+                        <div class="tut-body"><p>Si quieres una <b>espiral de alambre</b> (wire-o), no necesitas taladradora propia: lleva los folios a una <b>copistería</b> y lo encuadernan en minutos por poco dinero.</p></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Método C — Encuadernación japonesa cosida (sin grapas) 🪡</h2>
+                    <div class="tut-step">
+                        <div class="tut-num">1</div>
+                        <div class="tut-body"><p>Marca con lápiz <b>4 o 5 puntos</b> en el borde izquierdo, a 1 cm del borde y separados equitativamente.</p></div>
+                    </div>
+                    <div class="tut-step">
+                        <div class="tut-num">2</div>
+                        <div class="tut-body"><p>Perfora cada punto con una <b>aguileta</b> o punzón atravesando todo el paquete.</p></div>
+                    </div>
+                    <div class="tut-step">
+                        <div class="tut-num">3</div>
+                        <div class="tut-body"><p>Con <b>hilo encerado</b> y una aguja, cose entrando y saliendo por los agujeros (haciendo bucles en el borde) y remata con un nudo fuerte. Puedes ver mil tutoriales en vídeo buscando "encuadernación japonesa".</p></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>🛠️ Consejos finales</h2>
+                    <ul style="padding-left:20px; color:#334155;">
+                        <li>Imprime a una sola cara: resolverás cada sudoku con lápiz y no te molestarán números al reverso.</li>
+                        <li>Deja 2 cm de margen de impresión en el lado del lomo para que no se pierda nada al doblar las páginas.</li>
+                        <li>Empieza con el <b>Método A</b>: con 5-10 folios tienes tu primer cuadernillo en 5 minutos.</li>
+                    </ul>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="js/sudoku.js"></script>
+    <script>
+        'use strict';
+
+        // ==================== ESTADO ====================
+        const API = '/api';
+        let token = localStorage.getItem('sudoku_token');
+        let currentUser = JSON.parse(localStorage.getItem('sudoku_user') || 'null');
+        let currentGame = null;        // objeto partida activa
+        let selectedIdx = null;        // celda seleccionada
+        let dirty = false;             // hay cambios sin guardar
+        let undoStack = [];
+        let elapsedBase = 0;           // segundos ya jugados (persistidos)
+        let timerStartedAt = null;     // timestamp de la sesión actual
+        let timerInterval = null;
+        let baseStr = '';              // estado guardado por última vez
+        let currentDifficulty = 'medio';
+
+        const DIFFS = [
+            { key: 'facil',   label: 'Fácil',   dot: '#059669', desc: 'Muchas pistas' },
+            { key: 'medio',   label: 'Medio',   dot: '#0ea5e9', desc: 'Un reto tranquilo' },
+            { key: 'dificil', label: 'Difícil', dot: '#d97706', desc: 'Para jugadores curtidos' },
+            { key: 'experto', label: 'Experto', dot: '#dc2626', desc: 'Solo para valientes' },
+        ];
+
+        // ==================== API ====================
+        async function api(path, opts = {}) {
+            const headers = { ...(opts.headers || {}) };
+            if (opts.json) headers['Content-Type'] = 'application/json';
+            if (token) headers['Authorization'] = 'Bearer ' + token;
+            const res = await fetch(API + path, {
+                method: opts.method || 'GET',
+                headers,
+                body: opts.json ? JSON.stringify(opts.body) : undefined,
+                keepalive: opts.keepalive || false,
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.status === 401 && path !== '/auth/login') {
+                logout();
+                throw new Error('Sesión caducada');
+            }
+            if (!res.ok) throw new Error(data.error || 'Error en la petición');
+            return data;
+        }
+
+        // ==================== AUTENTICACIÓN ====================
+        function switchAuthTab(tab) {
+            document.getElementById('form-login').classList.toggle('hidden', tab !== 'login');
+            document.getElementById('form-register').classList.toggle('hidden', tab !== 'register');
+            document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+            document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+            hideError();
+        }
+
+        function hideError() { document.getElementById('auth-error').classList.add('hidden'); }
+        function showError(msg) {
+            const el = document.getElementById('auth-error');
+            el.textContent = msg;
+            el.classList.remove('hidden');
+        }
+
+        async function doLogin(e) {
+            e.preventDefault();
+            hideError();
+            try {
+                const data = await api('/auth/login', {
+                    method: 'POST',
+                    json: true,
+                    body: { username: document.getElementById('login-user').value, password: document.getElementById('login-pass').value }
+                });
+                setSession(data);
+            } catch (err) { showError(err.message); }
+        }
+
+        async function doRegister(e) {
+            e.preventDefault();
+            hideError();
+            const p1 = document.getElementById('reg-pass').value;
+            const p2 = document.getElementById('reg-pass2').value;
+            if (p1 !== p2) { showError('Las contraseñas no coinciden'); return; }
+            try {
+                const data = await api('/auth/register', {
+                    method: 'POST',
+                    json: true,
+                    body: { username: document.getElementById('reg-user').value, password: p1 }
+                });
+                setSession(data);
+            } catch (err) { showError(err.message); }
+        }
+
+        function setSession(data) {
+            token = data.token;
+            currentUser = data.user;
+            localStorage.setItem('sudoku_token', token);
+            localStorage.setItem('sudoku_user', JSON.stringify(currentUser));
+            enterApp();
+        }
+
+        function logout() {
+            stopTimer();
+            token = null;
+            currentUser = null;
+            currentGame = null;
+            localStorage.removeItem('sudoku_token');
+            localStorage.removeItem('sudoku_user');
+            document.getElementById('app').classList.add('hidden');
+            document.getElementById('auth-screen').classList.remove('hidden');
+            switchAuthTab('login');
+        }
+
+        // ==================== NAVEGACIÓN ====================
+        function go(section) {
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.section === section));
+            document.querySelectorAll('.app-main > section').forEach(s => s.classList.add('hidden'));
+            document.getElementById('sec-' + section).classList.remove('hidden');
+            if (section === 'play') renderPlay();
+            if (section === 'history') renderHistory();
+            if (currentGame && currentGame.status === 'in_progress') scheduleSave();
+        }
+
+        function enterApp() {
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('app').classList.remove('hidden');
+            const name = (currentUser.username || '?');
+            document.getElementById('user-name').textContent = name.charAt(0).toUpperCase() + name.slice(1);
+            document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
+            boot();
+        }
+
+        // ==================== INICIO ====================
+        async function boot() {
+            buildDiffChips();
+            renderPlay();
+            await renderHistory();
+        }
+
+        function buildDiffChips() {
+            const wrap = document.getElementById('diff-chips');
+            wrap.innerHTML = '';
+            DIFFS.forEach(d => {
+                const b = document.createElement('button');
+                b.className = 'chip' + (d.key === currentDifficulty ? ' selected' : '');
+                b.dataset.key = d.key;
+                b.onclick = () => bClicked(b);
+                b.innerHTML = '<span class="dot" style="background:' + d.dot + '"></span><span class="lbl">' + d.label + '</span><div class="desc">' + d.desc + '</div>';
+                wrap.appendChild(b);
+            });
+            updateNewBtn();
+        }
+
+        function bClicked(el) {
+            document.querySelectorAll('#diff-chips .chip').forEach(c => c.classList.remove('selected'));
+            el.classList.add('selected');
+            currentDifficulty = el.dataset.key;
+            updateNewBtn();
+        }
+        function updateNewBtn() { document.getElementById('btn-new-game').disabled = false; }
+
+        async function renderPlay() {
+            // Panel de partida actual
+            const panel = document.getElementById('current-game-panel');
+            panel.classList.toggle('hidden', !currentGame);
+            if (currentGame) {
+                paintCurrentGame();
+            }
+            // Lista de partidas en curso
+            const listEl = document.getElementById('inprogress-list');
+            try {
+                const data = await api('/games');
+                const inProgress = data.games.filter(g => g.status === 'in_progress');
+                if (inProgress.length === 0) {
+                    listEl.innerHTML = '<div class="empty-state"><span class="big">🗂️</span>No tienes sudokus a medias.<br>Pulsa "Generar sudoku aleatorio" para empezar.</div>';
+                    return;
+                }
+                listEl.innerHTML = '';
+                inProgress.forEach(g => {
+                    const filled = countFilled(g.progress || g.puzzle);
+                    const pct = Math.round(filled / 81 * 100);
+                    const item = document.createElement('div');
+                    item.className = 'list-item';
+                    item.innerHTML = '<div class="info">'
+                        + '<span class="badge b-' + g.difficulty + '">' + labelOf(g.difficulty) + '</span>'
+                        + '<span class="meta">Iniciado el ' + fmtDate(g.createdAt) + '</span>'
+                        + '<span class="meta">Progreso: <b>' + pct + '%</b></span>'
+                        + '</div>'
+                        + '<div class="actions">'
+                        + '<button class="btn btn-primary" onclick="resumeGame(' + g.id + ')">Continuar</button>'
+                        + '<button class="btn btn-red" onclick="deleteGame(' + g.id + ')">Borrar</button>'
+                        + '</div>';
+                    listEl.appendChild(item);
+                });
+            } catch (err) {
+                listEl.innerHTML = '<div class="empty-state">No se pudo cargar las partidas.</div>';
+            }
+        }
+
+        async function startNewGame() {
+            try {
+                unloadCurrent(false); // guardar lo que hubiera
+                const data = await api('/games', { method: 'POST', json: true, body: { difficulty: currentDifficulty } });
+                currentGame = data.game;
+                loadGame(data.game);
+            } catch (err) { alert(err.message); }
+        }
+
+        async function resumeGame(id) {
+            try {
+                unloadCurrent(false);
+                const data = await api('/games/' + id);
+                currentGame = data.game;
+                loadGame(data.game);
+            } catch (err) { alert(err.message); }
+        }
+
+        async function deleteGame(id) {
+            if (!confirm('¿Seguro que quieres borrar este sudoku a medias?')) return;
+            try {
+                await api('/games/' + id, { method: 'DELETE' });
+                if (currentGame && currentGame.id === id) { stopTimer(); currentGame = null; }
+                renderPlay();
+                renderHistory();
+            } catch (err) { alert(err.message); }
+        }
+
+        function startAnother() { currentGame = null; stopTimer(); renderPlay(); }
+
+        // ==================== PARTIDA ACTIVA ====================
+        function loadGame(game) {
+            currentGame = game;
+            selectedIdx = null;
+            undoStack = [];
+            baseStr = game.progress || game.puzzle;
+            elapsedBase = game.secondsSpent || 0;
+            timerStartedAt = Date.now();
+            startTimer();
+            renderBoard();
+            paintCurrentGame();
+            document.getElementById('sec-play').classList.remove('hidden');
+            go('play');
+        }
+
+        function paintCurrentGame() {
+            if (!currentGame) return;
+            const badge = document.getElementById('game-diff-badge');
+            badge.className = 'badge b-' + currentGame.difficulty;
+            badge.textContent = labelOf(currentGame.difficulty);
+            updateProgress();
+        }
+
+        function currentStr() {
+            return currentGame ? (currentGame.progress || currentGame.puzzle) : null;
+        }
+        function setStr(str) { if (currentGame) currentGame.progress = str; }
+        function countFilled(str) { let c = 0; for (let i = 0; i < str.length; i++) if (str[i] !== '0') c++; return c; }
+
+        function updateProgress() {
+            if (!currentGame) return;
+            const filled = countFilled(currentStr());
+            const pct = Math.round(filled / 81 * 100);
+            document.getElementById('game-progress-bar').style.width = pct + '%';
+            document.getElementById('game-progress-label').textContent = pct + '%';
+        }
+
+        // ==================== TABLERO ====================
+        function renderBoard() {
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+            const str = currentStr();
+            for (let i = 0; i < 81; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.idx = i;
+                cell.onclick = () => selectCell(i);
+                board.appendChild(cell);
+            }
+            buildNumpad();
+            applyStyles();
+        }
+
+        function buildNumpad() {
+            const pad = document.getElementById('numpad');
+            pad.innerHTML = '';
+            for (let n = 1; n <= 9; n++) {
+                const k = document.createElement('button');
+                k.className = 'key';
+                k.textContent = n;
+                k.onclick = () => placeNumber(n);
+                pad.appendChild(k);
+            }
+            const erase = document.createElement('button');
+            erase.className = 'key erase';
+            erase.textContent = '⌫';
+            erase.onclick = eraseCell;
+            pad.appendChild(erase);
+        }
+
+        function applyStyles() {
+            const str = currentStr();
+            const cells = document.querySelectorAll('#board .cell');
+            for (let i = 0; i < 81; i++) {
+                const cell = cells[i];
+                const row = Math.floor(i / 9), col = i % 9;
+                let cls = 'cell';
+                if (col === 2 || col === 5) cls += ' b';
+                if (col === 8) cls += ' no-r';
+                if (row === 2 || row === 5) cls += ' bb';
+                if (row === 8) cls += ' no-b';
+                cell.className = cls;
+                cell.textContent = str[i] === '0' ? '' : str[i];
+                const given = (currentGame.puzzle[i] !== '0');
+                if (given) cell.classList.add('given');
+                if (i === selectedIdx) { cell.classList.add('selected'); continue; }
+                if (hasConflictAt(i)) cell.classList.add('error');
+            }
+            // resaltado contextual
+            if (selectedIdx !== null) {
+                const selRow = Math.floor(selectedIdx / 9), selCol = selectedIdx % 9;
+                const selVal = str[selectedIdx];
+                for (let i = 0; i < 81; i++) {
+                    const cell = cells[i];
+                    if (cell.classList.contains('selected')) continue;
+                    const row = Math.floor(i / 9), col = i % 9;
+                    const sameRow = row === selRow, sameCol = col === selCol;
+                    const sameBox = Math.floor(row / 3) === Math.floor(selRow / 3) && Math.floor(col / 3) === Math.floor(selCol / 3);
+                    if (sameRow || sameCol || sameBox) cell.classList.add('hl');
+                    if (selVal !== '0' && str[i] === selVal) cell.classList.add('same');
+                }
+            }
+        }
+
+        function hasConflictAt(i) {
+            return SudokuLib.hasConflict(currentStr(), i);
+        }
+
+        function selectCell(i) {
+            if (!currentGame) return;
+            selectedIdx = i;
+            applyStyles();
+        }
+
+        function placeNumber(n) {
+            if (!currentGame || currentGame.status !== 'in_progress' || selectedIdx === null) return;
+            const str = currentStr();
+            if (currentGame.puzzle[selectedIdx] !== '0') return; // no tocar pistas
+            if (str[selectedIdx] === String(n)) return;
+            undoStack.push({ index: selectedIdx, prev: str[selectedIdx] });
+            setStr(str.substring(0, selectedIdx) + String(n) + str.substring(selectedIdx + 1));
+            dirty = true;
+            applyStyles();
+            updateProgress();
+            scheduleSave();
+            if (SudokuLib.isComplete(currentStr())) onComplete();
+        }
+
+        function eraseCell() {
+            if (!currentGame || currentGame.status !== 'in_progress' || selectedIdx === null) return;
+            const str = currentStr();
+            if (currentGame.puzzle[selectedIdx] !== '0') return;
+            if (str[selectedIdx] === '0') return;
+            undoStack.push({ index: selectedIdx, prev: str[selectedIdx] });
+            setStr(str.substring(0, selectedIdx) + '0' + str.substring(selectedIdx + 1));
+            dirty = true;
+            applyStyles();
+            updateProgress();
+            scheduleSave();
+        }
+
+        function undoMove() {
+            if (!currentGame || currentGame.status !== 'in_progress' || undoStack.length === 0) return;
+            const m = undoStack.pop();
+            const str = currentStr();
+            if (currentGame.puzzle[m.index] === '0') {
+                setStr(str.substring(0, m.index) + m.prev + str.substring(m.index + 1));
+                dirty = true;
+            }
+            applyStyles();
+            updateProgress();
+            scheduleSave();
+        }
+
+        function restartGame() {
+            if (!currentGame) return;
+            if (!confirm('¿Reiniciar el sudoku actual? Perderás lo que has escrito.')) return;
+            setStr(currentGame.puzzle);
+            undoStack = [];
+            dirty = true;
+            applyStyles();
+            updateProgress();
+            scheduleSave();
+        }
+
+        // ==================== GUARDADO ====================
+        let saveTimer = null;
+        function scheduleSave() {
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(saveNow, 600);
+        }
+
+        async function saveNow() {
+            if (!currentGame || currentGame.status !== 'in_progress' || !dirty) return;
+            const str = currentStr();
+            if (str === baseStr) { dirty = false; return; }
+            dirty = false;
+            baseStr = str;
+            try {
+                const data = await api('/games/' + currentGame.id, {
+                    method: 'PUT',
+                    json: true,
+                    body: { progress: str, secondsSpent: elapsedSeconds() }
+                });
+                currentGame = data.game;
+            } catch (err) { /* reintentar luego */ }
+        }
+
+        function unloadCurrent(quiet = true) {
+            if (currentGame && currentGame.status === 'in_progress') {
+                try {
+                    const str = currentStr();
+                    fetch(API + '/games/' + currentGame.id, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                        body: JSON.stringify({ progress: str, secondsSpent: elapsedSeconds() }),
+                        keepalive: true
+                    });
+                    baseStr = str; dirty = false;
+                } catch (e) { }
+            }
+        }
+
+        // ==================== TEMPORIZADOR ====================
+        function elapsedSeconds() {
+            const sessionMs = timerStartedAt ? (Date.now() - timerStartedAt) : 0;
+            return elapsedBase + Math.floor(sessionMs / 1000);
+        }
+
+        function startTimer() {
+            stopTimer();
+            timerInterval = setInterval(() => {
+                const el = document.getElementById('game-timer');
+                if (el) el.textContent = fmtSeconds(elapsedSeconds());
+            }, 1000);
+        }
+        function stopTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+
+        // ==================== COMPLETAR ====================
+        async function onComplete() {
+            stopTimer();
+            await saveNow();
+            try {
+                const data = await api('/games/' + currentGame.id + '/complete', {
+                    method: 'POST',
+                    json: true,
+                    body: { secondsSpent: elapsedSeconds() }
+                });
+                currentGame = data.game;
+            } catch (e) { }
+            const banner = document.getElementById('win-banner');
+            banner.classList.remove('hidden');
+            banner.innerHTML = '🎉 ¡Sudoku completado en <b>' + fmtSeconds(currentGame.secondsSpent) + '</b>! Se ha guardado en tu historial.<br>';
+            const again = document.createElement('button');
+            again.className = 'btn btn-primary';
+            again.style.marginTop = '10px';
+            again.textContent = 'Resolver otro';
+            again.onclick = () => { banner.classList.add('hidden'); startAnother(); renderHistory(); };
+            banner.appendChild(again);
+            renderHistory();
+        }
+
+        // ==================== HISTORIAL ====================
+        async function renderHistory() {
+            const listEl = document.getElementById('history-list');
+            if (!listEl) return;
+            try {
+                const data = await api('/history');
+                const h = data.history;
+                if (h.length === 0) {
+                    listEl.innerHTML = '<div class="empty-state"><span class="big">🏆</span>Aún no has completado ningún sudoku.<br>Cuando termines uno, aparecerá aquí con su fecha.</div>';
+                    return;
+                }
+                listEl.innerHTML = '<div class="list"></div>';
+                const list = listEl.querySelector('.list');
+                h.forEach(g => {
+                    const item = document.createElement('div');
+                    item.className = 'list-item';
+                    item.innerHTML = '<div class="info">'
+                        + '<span class="badge b-' + g.difficulty + '">' + labelOf(g.difficulty) + '</span>'
+                        + '<span class="meta">⚑ Terminado el <b>' + fmtDate(g.completedAt) + '</b></span>'
+                        + '<span class="meta">⏱ ' + fmtSeconds(g.secondsSpent) + '</span>'
+                        + '</div>';
+                    list.appendChild(item);
+                });
+            } catch (err) {
+                listEl.innerHTML = '<div class="empty-state">No se pudo cargar el historial.</div>';
+            }
+        }
+
+        // ==================== IMPRIMIR ====================
+        let perPage = 4;
+        function setPerPage(v) {
+            perPage = v;
+            document.querySelectorAll('#print-perpage button').forEach(b => b.classList.toggle('active', parseInt(b.dataset.v) === v));
+        }
+
+        async function generatePrint() {
+            const errEl = document.getElementById('print-error');
+            errEl.classList.add('hidden');
+            const difficulty = document.getElementById('print-difficulty').value;
+            const count = parseInt(document.getElementById('print-count').value) || 30;
+            const solutions = document.getElementById('print-solutions').checked;
+            const win = window.open('', '_blank');
+            if (!win) {
+                errEl.textContent = 'El navegador bloqueó la ventana. Permite las ventanas emergentes y vuelve a intentarlo.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            try {
+                const data = await api('/print', { method: 'POST', json: true, body: { difficulty, count } });
+                win.document.write(buildPrintHTML(data.puzzles, difficulty, solutions));
+                win.document.close();
+            } catch (err) {
+                win.close();
+                errEl.textContent = err.message;
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        function buildPrintHTML(puzzles, difficulty, solutions) {
+            const puzzleFs = perPage <= 1 ? '30px' : perPage === 2 ? '22px' : '20px';
+            const solFs = '14px';
+            const pages = [];
+            for (let i = 0; i < puzzles.length; i += perPage) {
+                const slice = puzzles.slice(i, i + perPage);
+                const title = 'Sudoku nº ' + (i + 1) + '–' + (i + slice.length) + ' · Dificultad: ' + SudokuLib.DIFFICULTIES[difficulty].label;
+                pages.push('<div class="sheet">' + printHeader(title) + '<div class="s-grid cols-' + slice.length + '">'
+                    + slice.map(p => '<div class="s-item">' + gridHTML(p.puzzle, puzzleFs) + '<div class="s-num"></div></div>').join('')
+                    + '</div></div>');
+            }
+            if (solutions) {
+                const solRows = [];
+                for (let i = 0; i < puzzles.length; i += 4) {
+                    solRows.push('<div class="s-row">' + puzzles.slice(i, i + 4).map(p => '<div class="s-item">' + gridHTML(p.solution, solFs) + '</div>').join('') + '</div>');
+                }
+                pages.push('<div class="sheet"><div class="s-header">🧩 Soluciones</div>' + solRows.join('') + '</div>');
+            }
+            return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Sudokus para imprimir</title><style>'
+                + '@page { size: A4; margin: 10mm; }'
+                + '* { margin:0; padding:0; box-sizing:border-box; }'
+                + 'body { font-family: Helvetica, Arial, sans-serif; color:#111; -webkit-print-color-adjust: exact; }'
+                + '.sheet { width: 190mm; min-height: 277mm; display:flex; flex-direction:column; justify-content:flex-start; page-break-after: always; }'
+                + '.sheet:last-child { page-break-after: auto; }'
+                + '.s-header { text-align:center; font-size: 15px; font-weight:bold; margin: 10px 0 14px; letter-spacing: 1px; }'
+                + '.s-grid { display:flex; flex-wrap:wrap; gap: 12mm; justify-content:center; }'
+                + '.s-row { display:flex; gap: 6mm; justify-content:center; margin-bottom: 10mm; }'
+                + '.s-grid.cols-1 .s-item { width: 150mm; }'
+                + '.s-grid.cols-2 .s-item { width: 86mm; }'
+                + '.s-grid.cols-4 .s-item { width: 89mm; }'
+                + '.s-row .s-item { width: 40mm; }'
+                + '.sudoku { display:grid; grid-template-columns:repeat(9,1fr); border:3px solid #111; width:100%; }'
+                + '.sudoku div { display:flex; align-items:center; justify-content:center; aspect-ratio:1; font-size: var(--fs, 20px); font-weight:bold; border-right:1px solid #888; border-bottom:1px solid #888; }'
+                + '.sudoku div:nth-child(3n){ border-right:2px solid #111; }'
+                + '.sudoku div:nth-child(9n){ border-right:none; }'
+                + '.sudoku div:nth-child(n+19):nth-child(-n+27){ border-bottom:2px solid #111; }'
+                + '.sudoku div:nth-child(n+46):nth-child(-n+54){ border-bottom:2px solid #111; }'
+                + '.sudoku div:nth-child(n+73){ border-bottom:none; }'
+                + '.s-item { display:flex; flex-direction:column; align-items:center; }'
+                + '.s-num { height: 8mm; }'
+                + '</style></head><body>' + pages.join('') + '</body></html>';
+        }
+
+        function printHeader(title) {
+            return '<div class="s-header">🧩 ' + title + '</div><div style="text-align:center; font-size:12px; color:#555; margin-bottom:10px;">Nombre: ______________________</div>';
+        }
+
+        function gridHTML(str, fs) {
+            let out = '<div class="sudoku" style="--fs:' + fs + '">';
+            for (let i = 0; i < 81; i++) {
+                out += '<div>' + (str[i] === '0' ? '' : str[i]) + '</div>';
+            }
+            return out + '</div>';
+        }
+
+        // ==================== FORMATOS ====================
+        function labelOf(key) { return (SudokuLib.DIFFICULTIES[key] || {}).label || key; }
+
+        function fmtDate(iso) {
+            if (!iso) return '—';
+            const d = new Date(iso);
+            return d.toLocaleString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+
+        function fmtSeconds(s) {
+            s = Math.max(0, Math.floor(s));
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            const sec = s % 60;
+            const mm = String(m).padStart(2, '0');
+            const ss = String(sec).padStart(2, '0');
+            return h > 0 ? h + ':' + mm + ':' + ss : mm + ':' + ss;
+        }
+
+        // ==================== TECLADO ====================
+        document.addEventListener('keydown', (e) => {
+            const appVisible = !document.getElementById('app').classList.contains('hidden');
+            const typing = e.target && e.target.tagName && ['INPUT', 'SELECT', 'TEXTAREA'].indexOf(e.target.tagName) !== -1;
+            if (!appVisible || typing || !currentGame || currentGame.status !== 'in_progress') return;
+            if (e.key >= '1' && e.key <= '9') { placeNumber(parseInt(e.key)); return; }
+            if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') { eraseCell(); return; }
+            if (e.key === 'ArrowUp' && selectedIdx !== null && selectedIdx >= 9) { e.preventDefault(); selectedIdx -= 9; applyStyles(); }
+            if (e.key === 'ArrowDown' && selectedIdx !== null && selectedIdx <= 71) { e.preventDefault(); selectedIdx += 9; applyStyles(); }
+            if (e.key === 'ArrowLeft' && selectedIdx !== null && selectedIdx % 9 > 0) { e.preventDefault(); selectedIdx -= 1; applyStyles(); }
+            if (e.key === 'ArrowRight' && selectedIdx !== null && selectedIdx % 9 < 8) { e.preventDefault(); selectedIdx += 1; applyStyles(); }
+        });
+
+        window.addEventListener('beforeunload', () => unloadCurrent());
+
+        // ==================== EJEMPLOS DEL TUTORIAL ====================
+        function fillMiniBox(el, values, highlight) {
+            const box = document.createElement('div');
+            box.className = 'mini-box';
+            for (let i = 0; i < 9; i++) {
+                const c = document.createElement('div');
+                c.className = 'mcell' + (highlight === i ? ' m-hl' : '');
+                c.textContent = values[i] === 0 ? '·' : values[i];
+                box.appendChild(c);
+            }
+            el.innerHTML = '';
+            el.appendChild(box);
+        }
+
+        function fillMiniRow(el, values, highlight) {
+            const row = document.createElement('div');
+            row.className = 'mini-row';
+            for (let i = 0; i < 9; i++) {
+                const c = document.createElement('div');
+                c.className = 'mcell' + (highlight === i ? ' m-hl' : '');
+                c.textContent = values[i] === 0 ? '·' : values[i];
+                row.appendChild(c);
+            }
+            el.innerHTML = '';
+            el.appendChild(row);
+        }
+
+        function buildExamples() {
+            // Caja 3x3 que solo falta el 1
+            fillMiniBox(document.getElementById('ex-box'), [2, 9, 8, 6, 5, 3, 4, 7, 0], 8);
+            // Fila 1-9 que solo falta el 7
+            fillMiniRow(document.getElementById('ex-row'), [8, 3, 0, 9, 4, 6, 5, 2, 1], 2);
+            // Marcas de lápiz
+            const box = document.getElementById('ex-cand-box');
+            const values = [5, 0, 2, 3, 9, 7, 6, 0, 1];
+            box.innerHTML = '';
+            const b = document.createElement('div');
+            b.className = 'mini-box';
+            for (let i = 0; i < 9; i++) {
+                const c = document.createElement('div');
+                c.className = 'mcell';
+                if (values[i] === 0) {
+                    c.innerHTML = '<span class="mini-cand">' + (i === 1 ? '4 · 8' : '4 · 8') + '</span>';
+                } else {
+                    c.textContent = values[i];
+                }
+                b.appendChild(c);
+            }
+            box.appendChild(b);
+        }
+
+        // ==================== ARRANQUE ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            buildExamples();
+            if (token && currentUser) {
+                api('/auth/me')
+                    .then(data => { currentUser = data.user; enterApp(); })
+                    .catch(() => logout());
+            } else {
+                document.getElementById('auth-screen').classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
