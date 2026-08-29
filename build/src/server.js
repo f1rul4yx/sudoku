@@ -53,6 +53,8 @@ async function initDatabase() {
                 completed_at TIMESTAMP
             );
 
+            ALTER TABLE games ADD COLUMN IF NOT EXISTS notes VARCHAR(243);
+
             CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
             CREATE INDEX IF NOT EXISTS idx_games_user ON games(user_id);
             CREATE INDEX IF NOT EXISTS idx_games_completed ON games(completed_at);
@@ -91,6 +93,7 @@ function mapGame(row) {
         puzzle: row.puzzle,
         solution: row.solution,
         progress: row.progress || row.puzzle,
+        notes: row.notes || '',
         status: row.status,
         secondsSpent: row.seconds_spent || 0,
         createdAt: row.created_at,
@@ -310,7 +313,7 @@ app.get('/api/games/:id', authenticateToken, async (req, res) => {
 app.put('/api/games/:id', authenticateToken, async (req, res) => {
     const client = await pool.connect();
     try {
-        const { progress, secondsSpent } = req.body;
+        const { progress, secondsSpent, notes } = req.body;
         const userId = req.user.id;
 
         if (!progress || progress.length !== 81) {
@@ -319,13 +322,16 @@ app.put('/api/games/:id', authenticateToken, async (req, res) => {
         if (typeof secondsSpent !== 'number' || secondsSpent < 0) {
             return res.status(400).json({ error: 'Tiempo no válido' });
         }
+        if (notes !== undefined && (typeof notes !== 'string' || notes.length > 243 || !/^[0-9a-fA-F]*$/.test(notes))) {
+            return res.status(400).json({ error: 'Notas no válidas' });
+        }
 
         const result = await client.query(
             `UPDATE games
-             SET progress = $1, seconds_spent = $2
-             WHERE id = $3 AND user_id = $4 AND status = 'in_progress'
+             SET progress = $1, seconds_spent = $2, notes = COALESCE($3, notes)
+             WHERE id = $4 AND user_id = $5 AND status = 'in_progress'
              RETURNING *`,
-            [progress, Math.floor(secondsSpent), req.params.id, userId]
+            [progress, Math.floor(secondsSpent), notes !== undefined ? notes : null, req.params.id, userId]
         );
 
         if (result.rows.length === 0) {
