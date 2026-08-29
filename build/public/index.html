@@ -256,6 +256,17 @@
             text-align: center; color: var(--muted); padding: 30px 10px; font-size: .95rem;
         }
         .empty-state .big { font-size: 2.4rem; display: block; margin-bottom: 6px; }
+        .filter-bar {
+            display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap;
+            padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--line);
+        }
+        .filter-field { display: flex; flex-direction: column; gap: 5px; }
+        .filter-field label { font-size: .78rem; font-weight: 700; color: var(--ink); }
+        .filter-field select {
+            padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px;
+            font-family: inherit; font-size: .92rem; background: #fff; color: var(--ink);
+        }
+        .hist-count { margin-left: auto; align-self: center; color: var(--muted); font-size: .85rem; white-space: nowrap; }
 
         /* ============ TUTORIAL ============ */
         .tut-step { display: flex; gap: 14px; margin-bottom: 20px; }
@@ -498,6 +509,38 @@
                 <h1 class="section-title">Historial</h1>
                 <p class="section-sub">Todos los sudokus que has completado, con su fecha de finalización.</p>
                 <div class="card">
+                    <div class="filter-bar" id="history-filters">
+                        <div class="filter-field">
+                            <label for="hist-level">Nivel</label>
+                            <select id="hist-level" onchange="renderHistory()">
+                                <option value="todos" selected>Todos los niveles</option>
+                                <option value="facil">Fácil</option>
+                                <option value="medio">Medio</option>
+                                <option value="dificil">Difícil</option>
+                                <option value="experto">Experto</option>
+                            </select>
+                        </div>
+                        <div class="filter-field">
+                            <label for="hist-date">Fecha</label>
+                            <select id="hist-date" onchange="renderHistory()">
+                                <option value="cualquiera" selected>Cualquier fecha</option>
+                                <option value="hoy">Solo hoy</option>
+                                <option value="7">Últimos 7 días</option>
+                                <option value="30">Últimos 30 días</option>
+                                <option value="anio">Este año</option>
+                            </select>
+                        </div>
+                        <div class="filter-field">
+                            <label for="hist-sort">Ordenar por</label>
+                            <select id="hist-sort" onchange="renderHistory()">
+                                <option value="reciente" selected>Fecha (más reciente)</option>
+                                <option value="antigua">Fecha (más antigua)</option>
+                                <option value="rapida">Menor tiempo</option>
+                                <option value="lenta">Mayor tiempo</option>
+                            </select>
+                        </div>
+                        <span id="hist-count" class="hist-count"></span>
+                    </div>
                     <div id="history-list"></div>
                 </div>
             </section>
@@ -742,7 +785,7 @@
             document.querySelectorAll('.app-main > section').forEach(s => s.classList.add('hidden'));
             document.getElementById('sec-' + section).classList.remove('hidden');
             if (section === 'play') renderPlay();
-            if (section === 'history') renderHistory();
+            if (section === 'history') renderHistory(true);
             if (currentGame && currentGame.status === 'in_progress') scheduleSave();
         }
 
@@ -1189,19 +1232,58 @@
         }
 
         // ==================== HISTORIAL ====================
-        async function renderHistory() {
+        let historyCache = null;
+
+        function applyHistoryFilters(list) {
+            const level = document.getElementById('hist-level').value;
+            const dateKey = document.getElementById('hist-date').value;
+            const sort = document.getElementById('hist-sort').value;
+            let out = list.slice();
+
+            if (level !== 'todos') out = out.filter(g => g.difficulty === level);
+
+            if (dateKey !== 'cualquiera') {
+                const now = new Date();
+                let from;
+                if (dateKey === 'hoy') { from = new Date(); from.setHours(0, 0, 0, 0); }
+                else if (dateKey === 'anio') { from = new Date(now.getFullYear(), 0, 1); }
+                else { from = new Date(now.getTime() - parseInt(dateKey, 10) * 864e5); }
+                out = out.filter(g => new Date(g.completedAt) >= from);
+            }
+
+            const t = g => g.secondsSpent || 0;
+            if (sort === 'antigua') out.sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt));
+            else if (sort === 'rapida') out.sort((a, b) => t(a) - t(b));
+            else if (sort === 'lenta') out.sort((a, b) => t(b) - t(a));
+            else out.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
+
+            return out;
+        }
+
+        async function renderHistory(refetch) {
             const listEl = document.getElementById('history-list');
             if (!listEl) return;
+            const countEl = document.getElementById('hist-count');
             try {
-                const data = await api('/history');
-                const h = data.history;
+                if (refetch || historyCache === null) {
+                    const data = await api('/history');
+                    historyCache = data.history;
+                }
+                const h = historyCache;
+                if (countEl) countEl.textContent = h.length + (h.length === 1 ? ' resultado' : ' resultados');
                 if (h.length === 0) {
                     listEl.innerHTML = '<div class="empty-state"><span class="big">🏆</span>Aún no has completado ningún sudoku.<br>Cuando termines uno, aparecerá aquí con su fecha.</div>';
                     return;
                 }
+                const filtered = applyHistoryFilters(h);
+                if (countEl) countEl.textContent = filtered.length + (filtered.length === 1 ? ' resultado' : ' resultados');
+                if (filtered.length === 0) {
+                    listEl.innerHTML = '<div class="empty-state"><span class="big">🔍</span>Ninguna partida coincide con los filtros.<br>Prueba a ampliar la fecha o el nivel.</div>';
+                    return;
+                }
                 listEl.innerHTML = '<div class="list"></div>';
                 const list = listEl.querySelector('.list');
-                h.forEach(g => {
+                filtered.forEach(g => {
                     const item = document.createElement('div');
                     item.className = 'list-item';
                     item.innerHTML = '<div class="info">'
