@@ -1143,13 +1143,15 @@
             for (let i = 0; i < puzzles.length; i += perPage) {
                 const slice = puzzles.slice(i, i + perPage);
                 const title = 'Sudoku nº ' + (i + 1) + '–' + (i + slice.length) + ' · ' + SudokuLib.DIFFICULTIES[difficulty].label;
-                pages.push(pageHTML(title, slice.map(p => '<div class="s-item">' + gridHTML(p.puzzle, slice.length) + '</div>').join('')));
+                pages.push(pageHTML(title, slice.map(p => '<div class="s-item">' + gridHTML(p.puzzle, PRINT_SIZE[uso][Math.min(slice.length, 4)]) + '</div>').join('')));
             }
             if (solutions) {
-                for (let i = 0; i < puzzles.length; i += perPage) {
-                    const slice = puzzles.slice(i, i + perPage);
+                const solPerPage = uso === 'a4' ? 12 : 6;
+                const solSize = uso === 'a4' ? [46, 12] : [52, 12];
+                for (let i = 0; i < puzzles.length; i += solPerPage) {
+                    const slice = puzzles.slice(i, i + solPerPage);
                     const title = 'Soluciones ' + (i + 1) + '–' + (i + slice.length);
-                    pages.push(pageHTML(title, slice.map(p => '<div class="s-item">' + gridHTML(p.solution, slice.length) + '</div>').join('')));
+                    pages.push(pageHTML(title, slice.map(p => '<div class="s-item">' + gridHTML(p.solution, solSize) + '</div>').join('')));
                 }
             }
             const sheets = [];
@@ -1167,6 +1169,7 @@
                 + 'body { font-family: Helvetica, Arial, sans-serif; color:#111; -webkit-print-color-adjust: exact; }'
                 + '.sheet { width: 190mm; display:flex; flex-direction:column; align-items:center; page-break-after: always; break-inside: avoid; page-break-inside: avoid; }'
                 + '.sheet:last-child { page-break-after: auto; }'
+                + '.sheet.a4 { min-height: 276mm; }'
                 + '.a5 { width: 100%; height: 135mm; position:relative; overflow:hidden; page-break-inside: avoid; }'
                 + '.rot { position:absolute; left:0; top:0; width:190mm; height:135mm; display:flex; align-items:center; justify-content:center; transform: rotate(-90deg); }'
                 + '.vpage { width: 135mm; height: 190mm; display:flex; flex-direction:column; align-items:center; }'
@@ -1188,7 +1191,7 @@
 
         function pageHTML(title, grids) {
             if (uso === 'a4') {
-                return '<div class="sheet"><div class="s-header">🧩 ' + title + '</div><div class="s-grid">' + grids + '</div></div>';
+                return '<div class="sheet a4"><div class="s-header">🧩 ' + title + '</div><div class="s-grid">' + grids + '</div></div>';
             }
             return '<div class="a5"><div class="rot"><div class="vpage"><div class="s-header">🧩 ' + title + '</div><div class="s-grid">' + grids + '</div></div></div></div>';
         }
@@ -1197,10 +1200,12 @@
             return '<div class="cut-zone"><div class="cut-line"></div><span class="cut-txt">✂️ cortar aquí</span><div class="cut-line"></div></div>';
         }
 
-        function gridHTML(str, count) {
-            const size = uso === 'a4'
-                ? { 1: [150, 30], 2: [86, 22], 3: [58, 20], 4: [89, 20] }[Math.min(count, 4)]
-                : (count <= 1 ? [125, 26] : [63, 14]);
+        const PRINT_SIZE = {
+            a4: { 1: [150, 30], 2: [124, 26], 3: [89, 20], 4: [89, 20] },
+            a5: { 1: [125, 26], 2: [84, 18], 3: [63, 14], 4: [63, 14] }
+        };
+
+        function gridHTML(str, size) {
             let out = '<div class="sudoku" style="--fs:' + size[1] + 'px; width:' + size[0] + 'mm">';
             for (let i = 0; i < 81; i++) {
                 out += '<div>' + (str[i] === '0' ? '' : str[i]) + '</div>';
