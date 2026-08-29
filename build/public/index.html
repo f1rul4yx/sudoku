@@ -503,7 +503,7 @@
                             <input id="print-count" type="number" min="1" max="100" value="30">
                         </div>
                         <div>
-                            <label style="font-size:.8rem;font-weight:700;">Sudokus por folio</label>
+                            <label style="font-size:.8rem;font-weight:700;">Sudokus por página A5</label>
                             <div class="seg" id="print-perpage">
                                 <button data-v="1" onclick="setPerPage(1)">1</button>
                                 <button data-v="2" onclick="setPerPage(2)">2</button>
@@ -517,7 +517,7 @@
                     </div>
                     <div id="print-error" class="error-box hidden"></div>
                     <button class="btn btn-primary" onclick="generatePrint()">🖨️ Generar folios para imprimir</button>
-                    <p style="margin-top:12px; color:var(--muted); font-size:.85rem;">Se abrirá una ventana con los folios maquetados en A4. Pulsa "Imprimir" en el navegador y elige el tamaño A4.</p>
+                    <p style="margin-top:12px; color:var(--muted); font-size:.85rem;">Se abrirá una ventana con los folios maquetados en A4. Cada folio contiene 2 páginas A5 (una arriba y otra abajo, separadas por una línea de corte): recorta o dobla por esa línea para obtener folios A5. Pulsa "Imprimir" en el navegador y elige el tamaño A4.</p>
                 </div>
             </section>
 
@@ -529,7 +529,7 @@
                 <div class="card">
                     <h2>📦 Qué necesitas</h2>
                     <ul style="padding-left:20px; color:#334155;">
-                        <li>Los folios A4 impresos desde la sección <b>Imprimir</b>.</li>
+                        <li>Los folios A4 impresos desde la sección <b>Imprimir</b> (recórtalos o dóblalos por la línea central para obtener páginas A5).</li>
                         <li>Dos hojas de <b>cartulina</b> (tapa delantera y trasera).</li>
                         <li>Una <b>grapadora de lomo ancho</b>, unas <b>anillas</b> o <b>aguja e hilo encerado</b> según el método que elijas.</li>
                         <li>Opcional: <b>cinta adhesiva</b> o de tela para reforzar el lomo.</li>
@@ -1127,22 +1127,24 @@
         }
 
         function buildPrintHTML(puzzles, difficulty, solutions) {
-            const puzzleFs = perPage <= 1 ? '30px' : perPage === 2 ? '22px' : '20px';
-            const solFs = '14px';
-            const pages = [];
+            const fsByCols = { 1: '24px', 2: '20px', 3: '13px', 4: '13px' };
+            const a5s = [];
             for (let i = 0; i < puzzles.length; i += perPage) {
                 const slice = puzzles.slice(i, i + perPage);
-                const title = 'Sudoku nº ' + (i + 1) + '–' + (i + slice.length) + ' · Dificultad: ' + SudokuLib.DIFFICULTIES[difficulty].label;
-                pages.push('<div class="sheet">' + printHeader(title) + '<div class="s-grid cols-' + slice.length + '">'
-                    + slice.map(p => '<div class="s-item">' + gridHTML(p.puzzle, puzzleFs) + '<div class="s-num"></div></div>').join('')
-                    + '</div></div>');
+                const title = 'Sudoku nº ' + (i + 1) + '–' + (i + slice.length) + ' · ' + SudokuLib.DIFFICULTIES[difficulty].label;
+                a5s.push(a5Page(title, slice.map(p => '<div class="s-item">' + gridHTML(p.puzzle, fsByCols[slice.length]) + '<div class="s-num"></div></div>').join(''), slice.length));
             }
             if (solutions) {
-                const solRows = [];
-                for (let i = 0; i < puzzles.length; i += 4) {
-                    solRows.push('<div class="s-row">' + puzzles.slice(i, i + 4).map(p => '<div class="s-item">' + gridHTML(p.solution, solFs) + '</div>').join('') + '</div>');
+                for (let i = 0; i < puzzles.length; i += perPage) {
+                    const slice = puzzles.slice(i, i + perPage);
+                    const title = 'Soluciones ' + (i + 1) + '–' + (i + slice.length);
+                    a5s.push(a5Page(title, slice.map(p => '<div class="s-item">' + gridHTML(p.solution, fsByCols[slice.length]) + '</div>').join(''), slice.length));
                 }
-                pages.push('<div class="sheet"><div class="s-header">🧩 Soluciones</div>' + solRows.join('') + '</div>');
+            }
+            const sheets = [];
+            for (let i = 0; i < a5s.length; i += 2) {
+                const half = a5s.slice(i, i + 2);
+                sheets.push('<div class="sheet">' + half[0] + (half[1] ? cutZone() + half[1] : '') + '</div>');
             }
             return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Sudokus para imprimir</title><style>'
                 + '@page { size: A4; margin: 10mm; }'
@@ -1150,13 +1152,17 @@
                 + 'body { font-family: Helvetica, Arial, sans-serif; color:#111; -webkit-print-color-adjust: exact; }'
                 + '.sheet { width: 190mm; min-height: 277mm; display:flex; flex-direction:column; justify-content:flex-start; page-break-after: always; }'
                 + '.sheet:last-child { page-break-after: auto; }'
-                + '.s-header { text-align:center; font-size: 15px; font-weight:bold; margin: 10px 0 14px; letter-spacing: 1px; }'
-                + '.s-grid { display:flex; flex-wrap:wrap; gap: 12mm; justify-content:center; }'
-                + '.s-row { display:flex; gap: 6mm; justify-content:center; margin-bottom: 10mm; }'
-                + '.s-grid.cols-1 .s-item { width: 150mm; }'
-                + '.s-grid.cols-2 .s-item { width: 86mm; }'
-                + '.s-grid.cols-4 .s-item { width: 89mm; }'
-                + '.s-row .s-item { width: 40mm; }'
+                + '.a5 { height: 135mm; display:flex; flex-direction:column; align-items:center; }'
+                + '.s-header { text-align:center; font-size: 13px; font-weight:bold; margin: 5px 0 3px; letter-spacing: 0.5px; }'
+                + '.s-name { margin-top:auto; text-align:center; font-size: 11px; color:#555; margin-bottom: 5px; }'
+                + '.cut-zone { height: 7mm; display:flex; align-items:center; gap: 6px; padding: 0 12mm; }'
+                + '.cut-line { flex:1; border-top: 1px dashed #999; }'
+                + '.cut-txt { font-size: 10px; color:#999; white-space: nowrap; }'
+                + '.s-grid { display:flex; flex-wrap:wrap; gap: 8mm; justify-content:center; align-content:center; flex:1; }'
+                + '.s-grid.cols-1 .s-item { width: 114mm; }'
+                + '.s-grid.cols-2 .s-item { width: 88mm; }'
+                + '.s-grid.cols-3 .s-item { width: 54mm; }'
+                + '.s-grid.cols-4 .s-item { width: 54mm; }'
                 + '.sudoku { display:grid; grid-template-columns:repeat(9,1fr); border:3px solid #111; width:100%; }'
                 + '.sudoku div { display:flex; align-items:center; justify-content:center; aspect-ratio:1; font-size: var(--fs, 20px); font-weight:bold; border-right:1px solid #888; border-bottom:1px solid #888; }'
                 + '.sudoku div:nth-child(3n){ border-right:2px solid #111; }'
@@ -1165,12 +1171,18 @@
                 + '.sudoku div:nth-child(n+46):nth-child(-n+54){ border-bottom:2px solid #111; }'
                 + '.sudoku div:nth-child(n+73){ border-bottom:none; }'
                 + '.s-item { display:flex; flex-direction:column; align-items:center; }'
-                + '.s-num { height: 8mm; }'
-                + '</style></head><body>' + pages.join('') + '</body></html>';
+                + '.s-num { height: 6mm; }'
+                + '</style></head><body>' + sheets.join('') + '</body></html>';
         }
 
-        function printHeader(title) {
-            return '<div class="s-header">🧩 ' + title + '</div><div style="text-align:center; font-size:12px; color:#555; margin-bottom:10px;">Nombre: ______________________</div>';
+        function a5Page(title, grids, cols) {
+            return '<div class="a5"><div class="s-header">🧩 ' + title + '</div>'
+                + '<div class="s-grid cols-' + cols + '">' + grids + '</div>'
+                + '<div class="s-name">Nombre: ______________________</div></div>';
+        }
+
+        function cutZone() {
+            return '<div class="cut-zone"><div class="cut-line"></div><span class="cut-txt">✂️ cortar aquí</span><div class="cut-line"></div></div>';
         }
 
         function gridHTML(str, fs) {
