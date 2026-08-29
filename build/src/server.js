@@ -33,11 +33,11 @@ async function initDatabase() {
     const client = await pool.connect();
     try {
         await client.query(`
-            CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
                 username VARCHAR(50) UNIQUE NOT NULL,
                 password VARCHAR(255) NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
             );
 
             CREATE TABLE IF NOT EXISTS games (
@@ -49,8 +49,8 @@ async function initDatabase() {
                 progress VARCHAR(81),
                 status VARCHAR(20) DEFAULT 'in_progress',
                 seconds_spent INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                completed_at TIMESTAMP
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMPTZ
             );
 
             ALTER TABLE games ADD COLUMN IF NOT EXISTS notes VARCHAR(243);
@@ -62,6 +62,32 @@ async function initDatabase() {
         console.log('✅ Database tables initialized');
     } catch (error) {
         console.error('❌ Database initialization error:', error);
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+// Migra columnas de fecha heredadas (TIMESTAMP sin zona → TIMESTAMPTZ).
+// Se ejecuta una sola vez: guardada por el tipo de columna, idempotente.
+async function migrateDateColumns() {
+    const client = await pool.connect();
+    try {
+        await client.query(`
+            DO $$
+            BEGIN
+                IF (SELECT data_type FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = 'games' AND column_name = 'completed_at')
+                    = 'timestamp without time zone' THEN
+                    ALTER TABLE users ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+                    ALTER TABLE games ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+                    ALTER TABLE games ALTER COLUMN completed_at TYPE TIMESTAMPTZ USING completed_at AT TIME ZONE 'UTC';
+                END IF;
+            END
+            $$;
+        `);
+    } catch (error) {
+        console.error('❌ Date migration error:', error);
         throw error;
     } finally {
         client.release();
@@ -470,6 +496,7 @@ async function start() {
     try {
         console.log('🔄 Connecting to PostgreSQL...');
         await initDatabase();
+        await migrateDateColumns();
 
         app.listen(PORT, '0.0.0.0', () => {
             console.log(`🧩 Sudoku server running on port ${PORT}`);
