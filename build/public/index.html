@@ -199,8 +199,7 @@
             display: grid; grid-template-columns: repeat(3, 1fr);
             width: 100%; height: 100%; place-items: center; padding: 1px;
         }
-        .cell .cands span { font-size: clamp(7px, 1.6vw, 11px); color: var(--muted); opacity: .35; line-height: 1; font-weight: 600; }
-        .cell .cands span.on { opacity: 1; color: var(--primary); font-weight: 700; }
+        .cell .cands span { font-size: clamp(7px, 1.6vw, 11px); color: var(--primary); font-weight: 700; line-height: 1; }
 
         /* ============ GAME CONTROLS ============ */
         .game-top {
@@ -417,6 +416,7 @@
                     <div id="numpad"></div>
                     <div class="game-actions">
                         <button class="btn btn-ghost" onclick="undoMove()">↩ Deshacer</button>
+                        <button class="btn btn-ghost" onclick="redoMove()">↪ Rehacer</button>
                         <button class="btn btn-ghost" onclick="restartGame()">🔄 Reiniciar</button>
                         <button class="btn btn-primary" onclick="startAnother()">＋ Nueva</button>
                     </div>
@@ -680,6 +680,7 @@
         let notesMode = false;         // modo marcas de lápiz
         let dirty = false;             // hay cambios sin guardar
         let undoStack = [];
+        let redoStack = [];
         let elapsedBase = 0;           // segundos ya jugados (persistidos)
         let timerStartedAt = null;     // timestamp de la sesión actual
         let timerInterval = null;
@@ -903,6 +904,7 @@
             notesMode = false;
             document.getElementById('notes-toggle').classList.remove('on');
             undoStack = [];
+            redoStack = [];
             baseStr = game.progress || game.puzzle;
             baseNotes = currentGame.notes;
             elapsedBase = game.secondsSpent || 0;
@@ -960,7 +962,11 @@
 
         function candsHTML(notes) {
             let s = '<div class="cands">';
-            for (let d = 1; d <= 9; d++) s += '<span' + (notes.indexOf(String(d)) !== -1 ? ' class="on"' : '') + '>' + d + '</span>';
+            for (let d = 1; d <= 9; d++) {
+                if (notes.indexOf(String(d)) === -1) continue;
+                const r = Math.ceil(d / 3), c = ((d - 1) % 3) + 1;
+                s += '<span class="on" style="grid-row:' + r + ';grid-column:' + c + '">' + d + '</span>';
+            }
             return s + '</div>';
         }
 
@@ -1051,7 +1057,8 @@
 
         function selectCell(i) {
             if (!currentGame) return;
-            selectedIdx = i;
+            if (selectedIdx === i) selectedIdx = null; // segundo toque: deseleccionar y quitar el resaltado
+            else selectedIdx = i;
             applyStyles();
         }
 
@@ -1068,7 +1075,8 @@
             const i = selectedIdx;
             if (currentGame.puzzle[i] !== '0') return; // no tocar pistas
             if (str[i] === String(n)) return;
-            undoStack.push({ index: i, prev: str[i], prevNotes: notesAt(i) });
+            undoStack.push({ index: i, prev: str[i], prevNotes: notesAt(i), next: String(n), nextNotes: '' });
+            redoStack = [];
             setStr(str.substring(0, i) + String(n) + str.substring(i + 1));
             setNotesAt(i, ''); // al confirmar un valor se limpian sus notas
             dirty = true;
@@ -1086,15 +1094,16 @@
             const cur = notesAt(i);
             if (cur.indexOf(String(n)) === -1) {
                 const next = (cur + String(n)).split('').sort().join('');
-                undoStack.push({ index: i, prev: '0', prevNotes: cur });
+                undoStack.push({ index: i, prev: '0', prevNotes: cur, next: '0', nextNotes: next });
                 setNotesAt(i, next);
             } else {
                 const next = cur.replace(String(n), '');
                 if (next === cur) return;
-                undoStack.push({ index: i, prev: '0', prevNotes: cur });
+                undoStack.push({ index: i, prev: '0', prevNotes: cur, next: '0', nextNotes: next });
                 setNotesAt(i, next);
             }
             dirty = true;
+            redoStack = [];
             applyStyles();
             scheduleSave();
         }
@@ -1108,14 +1117,16 @@
                 // sin valor: borrar solo las notas de la casilla
                 const cur = notesAt(i);
                 if (!cur) return;
-                undoStack.push({ index: i, prev: '0', prevNotes: cur });
+                undoStack.push({ index: i, prev: '0', prevNotes: cur, next: '0', nextNotes: '' });
+                redoStack = [];
                 setNotesAt(i, '');
                 dirty = true;
                 applyStyles();
                 scheduleSave();
                 return;
             }
-            undoStack.push({ index: i, prev: str[i], prevNotes: notesAt(i) });
+            undoStack.push({ index: i, prev: str[i], prevNotes: notesAt(i), next: '0', nextNotes: notesAt(i) });
+            redoStack = [];
             setStr(str.substring(0, i) + '0' + str.substring(i + 1));
             dirty = true;
             applyStyles();
@@ -1127,9 +1138,25 @@
             if (!currentGame || currentGame.status !== 'in_progress' || undoStack.length === 0) return;
             const m = undoStack.pop();
             if (currentGame.puzzle[m.index] === '0') {
+                redoStack.push(m);
                 const str = currentStr();
                 setStr(str.substring(0, m.index) + m.prev + str.substring(m.index + 1));
                 setNotesAt(m.index, m.prevNotes || '');
+                dirty = true;
+                applyStyles();
+                updateProgress();
+                scheduleSave();
+            }
+        }
+
+        function redoMove() {
+            if (!currentGame || currentGame.status !== 'in_progress' || redoStack.length === 0) return;
+            const m = redoStack.pop();
+            if (currentGame.puzzle[m.index] === '0' && m.next != null) {
+                undoStack.push(m);
+                const str = currentStr();
+                setStr(str.substring(0, m.index) + m.next + str.substring(m.index + 1));
+                setNotesAt(m.index, m.nextNotes || '');
                 dirty = true;
                 applyStyles();
                 updateProgress();
@@ -1143,6 +1170,7 @@
             setStr(currentGame.puzzle);
             currentGame.notes = '';
             undoStack = [];
+            redoStack = [];
             dirty = true;
             applyStyles();
             updateProgress();
@@ -1434,6 +1462,8 @@
             if (!appVisible || typing || !currentGame || currentGame.status !== 'in_progress') return;
             if (e.key >= '1' && e.key <= '9') { if (notesMode) placeCandidate(parseInt(e.key)); else placeNumber(parseInt(e.key)); return; }
             if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') { eraseCell(); return; }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redoMove(); else undoMove(); return; }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); redoMove(); return; }
             if (e.key === 'ArrowUp' && selectedIdx !== null && selectedIdx >= 9) { e.preventDefault(); selectedIdx -= 9; applyStyles(); }
             if (e.key === 'ArrowDown' && selectedIdx !== null && selectedIdx <= 71) { e.preventDefault(); selectedIdx += 9; applyStyles(); }
             if (e.key === 'ArrowLeft' && selectedIdx !== null && selectedIdx % 9 > 0) { e.preventDefault(); selectedIdx -= 1; applyStyles(); }
